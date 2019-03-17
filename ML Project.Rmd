@@ -1,0 +1,97 @@
+---
+title: "Project1"
+output: html_document
+---
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+
+Reading in the libraries neccessery for the analysts
+```{r}
+library(caret)
+library(gbm)
+library(randomForest)
+```
+###Reading and cleaning data
+```{r }
+
+training <-  read.csv("C:\\Users\\Lucas\\Downloads\\pml-training.csv",na.strings = c("NA","NaN","","#DIV/0!"))
+testing <- read.csv("C:\\Users\\Lucas\\Downloads\\pml-testing.csv",na.strings = c("NA","NaN","","#DIV/0!"))
+
+str(training)
+```
+
+Next step is to remove variables that are missing at large as it will create issues for the ML algorithms
+### Cleaning data
+```{r}
+
+training <- training[, colSums(is.na(training)) == 0]
+testing  <- testing[, colSums(is.na(testing)) == 0]
+
+```
+
+Removing first 7 predicors that have nothing to do with the outcome Classe to improve predictive power
+
+
+```{r}
+trainData <- training[, -c(1:7)]
+testData <- testing[, -c(1:7)]
+set.seed(2102) 
+```
+
+
+Creating a validation set because test set contains only 20 observations
+```{r}
+
+
+inTrain <- createDataPartition(trainData$classe, p = 0.75, list = FALSE)
+trainDat <- trainData[inTrain, ]
+validDat <- trainData[-inTrain, ]
+```
+
+I will use Boosting and Classification trees to predict the outcome classe
+
+###Boosting model
+```{r}
+modfit <- train(classe~.,method="gbm", data=trainDat,verbose=FALSE)
+print(modfit)
+```
+
+Predicting outcomes using validation set
+```{r}
+
+predict_gbm <- predict(modfit, validDat)
+# Show prediction result
+conf_gbm <- confusionMatrix(validDat$classe, predict_gbm)
+conf_gbm
+accuracy_gbm <- conf_gbm$overall[1]
+```
+Confusion matrix shows that the accuracy rate is .96 Boosting model predicts the classe very well. 
+
+
+##Random Forests
+
+```{r }
+fitRF <- train(classe ~ ., data = trainDat, method = "rf")
+print(fitRF, digits = 4)
+```
+
+Using the model output into fitRF to use predict() function on validation set
+
+```{r}
+predRF <- predict(fitRF, validDat)
+confusionMatrix(validDat$classe, predRF)
+```
+
+Looking at the confusion matrix, accuracy of RandomForest algorithm 0.9923
+
+Both RandomForests and Boosting were able to predict outcome classe with 0.9617 and 0.9923 respectively. The high accuracy rate could be due to the many predictors being correlated with one another.
+
+##Executing the final models on test set
+
+Here we use predit() function but this time on the test set that contains 20 observations
+```{r}
+testPred<-predict(fitRF, testData)
+testPred
+
+
+```
